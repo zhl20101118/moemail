@@ -12,32 +12,34 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # Get full git history for checking file changes
+          fetch-depth: 0
 
       - name: Get previous tag
         id: previoustag
         if: github.event_name == 'push'
-        run: |
-          echo "tag=$(git describe --tags --abbrev=0 HEAD^)" >> $GITHUB_OUTPUT
+        run: echo "tag=$(git describe --tags --abbrev=0 HEAD^)" >> $GITHUB_OUTPUT
         continue-on-error: true
+
+      # 强制安装 Node 22 并设置为默认
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.x'
+          cache: 'pnpm'
+
+      # 验证版本（关键）
+      - name: Verify Node version
+        run: node --version
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v2
         with:
           version: 9
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22.x'       # 使用 22.x 确保匹配最新小版本
-          cache: 'pnpm'
-
-      - name: Verify Node version
-        run: node --version          # 打印实际使用的 Node 版本，用于调试
-
       - name: Install Dependencies
         run: pnpm install --frozen-lockfile
 
+      # 使用 pnpm exec 而不是 dlx，避免子进程版本污染
       - name: Run deploy script
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -53,7 +55,7 @@ jobs:
           AUTH_GOOGLE_ID: ${{ secrets.AUTH_GOOGLE_ID }}
           AUTH_GOOGLE_SECRET: ${{ secrets.AUTH_GOOGLE_SECRET }}
           AUTH_SECRET: ${{ secrets.AUTH_SECRET }}
-        run: pnpm exec tsx scripts/deploy/index.ts   # 改用 pnpm exec 而不是 dlx，避免版本污染
+        run: pnpm exec tsx scripts/deploy/index.ts
 
       - name: Post deployment cleanup
         run: |
