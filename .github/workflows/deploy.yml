@@ -9,6 +9,8 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    container:
+      image: node:22-slim   # 强制使用 Node 22 环境
     steps:
       - uses: actions/checkout@v4
         with:
@@ -17,29 +19,17 @@ jobs:
       - name: Get previous tag
         id: previoustag
         if: github.event_name == 'push'
-        run: echo "tag=$(git describe --tags --abbrev=0 HEAD^)" >> $GITHUB_OUTPUT
+        run: |
+          echo "tag=$(git describe --tags --abbrev=0 HEAD^)" >> $GITHUB_OUTPUT
         continue-on-error: true
 
-      # 强制安装 Node 22 并设置为默认
-      - name: Setup Node.js 22
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22.x'
-          cache: 'pnpm'
-
-      # 验证版本（关键）
-      - name: Verify Node version
-        run: node --version
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v2
-        with:
-          version: 9
+      # 在容器中安装 pnpm
+      - name: Install pnpm
+        run: npm install -g pnpm@9
 
       - name: Install Dependencies
         run: pnpm install --frozen-lockfile
 
-      # 使用 pnpm exec 而不是 dlx，避免子进程版本污染
       - name: Run deploy script
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
